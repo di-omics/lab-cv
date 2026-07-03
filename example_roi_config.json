@@ -1,0 +1,9 @@
+{
+    "_comment": "Placeholder ROI regions -- calibrate x/y/w/h to your actual deck camera view",
+    "rois": [
+        {"name": "tip-rack",   "x": 50,  "y": 50,  "w": 100, "h": 100},
+        {"name": "plate-A",    "x": 200, "y": 50,  "w": 100, "h": 100},
+        {"name": "plate-B",    "x": 50,  "y": 200, "w": 100, "h": 100},
+        {"name": "reservoir",  "x": 200, "y": 200, "w": 100, "h": 100}
+    ]
+}

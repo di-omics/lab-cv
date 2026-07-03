@@ -1,0 +1,6 @@
+frames/
+videos/
+output/
+__pycache__/
+*.pyc
+.DS_Store
