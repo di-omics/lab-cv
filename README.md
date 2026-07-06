@@ -38,6 +38,7 @@ the classical baseline (no models installed). Re-run `make all` to reproduce.
 | **[well_detection](demos/well_detection)** | instance detection + COCO scoring | clean plate **AP@0.5 = 1.00**, AP@[.5:.95] = 0.70, precision 0.94, recall 1.00; with `--occluder` a "hand" hides wells -> **recall 0.96**, AP@0.5 0.95 | RF-DETR / RT-DETRv4 behind `detect(model="rfdetr")` |
 | **[well_state](demos/well_state)** | per-instance state + confidence (spatial verification) | **48 instances, ~2-3 ms/frame, accuracy 1.00**, clean confusion matrix; `--partial 4` under-fills wells -> **4 low-confidence QC flags** | learned classifier / VLM, same `classify()` call |
 | **[roi_tracking](demos/roi_tracking)** | identity across a deck video | localization **IoU 0.93**; crossing paths -> **2 ID switches** (greedy IoU has no memory), parallel -> **0** | SAM2 video memory behind `tracker.SAM2Tracker` |
+| **[tacit_gap](demos/tacit_gap)** | where the camera passes but the chemistry fails | every well reads filled -> spatial verifier says GO, catching **0/6** wrong-concentration wells; a paired ground-truth readout catches **6/6** -> composed layer clears 42/48 | orthogonal validation readout (dye / plate-reader), same interface |
 | **[morphokinetics](demos/morphokinetics)** | timing recovery under crowding | separable -> **7/7 events, MAE 0 min**; `--crowding` packs blastomeres -> baseline **1/7, MAE 60 min** | RF-DETR + SAM2 (built out in the two demos above) |
 | **[vocab_vlm](demos/vocab_vlm)** | detector -> VLM layering | open-vocab labeling **accuracy 1.00**; VLM escalated on only the low-confidence boxes -> **~52% of calls saved** | Qwen3-VL (vocabulary) / Gemini 3 (reasoning), offline mock backend by default |
 
@@ -60,6 +61,10 @@ The low-confidence flag in `well_state` is the point where CV meets lab
 reproducibility: a step can *look* executed and still be wrong ("the motions look
 right, the chemistry's off"). Spatial verification catches the visible half and
 flags the ambiguous half for orthogonal QC, rather than passing it silently.
+`tacit_gap` takes that to its conclusion: spatial AI proves the motion, a
+ground-truth readout proves the chemistry, and only their composition is a real
+trust layer - the camera cannot see a wrong concentration in a correctly filled
+well, so something orthogonal has to.
 
 ## Real-model paths (optional)
 
