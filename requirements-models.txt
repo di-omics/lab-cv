@@ -1,0 +1,16 @@
+# Optional learned-model paths - NOT required for any demo above.
+# Every baseline runs fully on requirements.txt alone; these only enable the
+# seams (detect(model="rfdetr"), tracker.SAM2Tracker, VLM backends). They are
+# deliberately not exercised by the CPU baselines or by `make all`, so treat
+# this as a pointer, not a verified lockfile - install what you actually swap in.
+
+# demos/well_detection  - learned detection behind the same detect() interface
+rfdetr                 # RF-DETR (Apache-2.0); RT-DETRv4 via your framework of choice
+torch                  # backend for the above
+
+# demos/roi_tracking    - SAM2 identity memory behind the same tracker interface
+# sam2 @ git+https://github.com/facebookresearch/sam2.git
+
+# demos/vocab_vlm       - open-vocab / reasoning VLM backends
+# Hosted: Qwen3-VL (vocabulary), Gemini 3 (reasoning) via their APIs, or:
+# transformers         # local Qwen3-VL

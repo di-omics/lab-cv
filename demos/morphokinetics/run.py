@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """
-embryo_morphokinetics_demo.py
-Clean-room synthetic time-lapse morphokinetics - plant a division schedule,
-recover it blind, score the recovery. Same discipline as the omics-demos:
-known ground truth in, honest error out.
+morphokinetics - clean-room synthetic time-lapse embryo morphokinetics: plant a
+division schedule, recover it blind, score the recovery. Same discipline as the
+omics-demos: known ground truth in, honest error out.
 
 Run:
-    python3 embryo_morphokinetics_demo.py              # baseline recovers the schedule
-    python3 embryo_morphokinetics_demo.py --crowding   # cells pack -> baseline breaks
+    python3 demos/morphokinetics/run.py              # baseline recovers the schedule
+    python3 demos/morphokinetics/run.py --crowding   # cells pack -> baseline breaks
 
 Deps: numpy only. No hardware, no downloads, no real embryo data.
 
@@ -20,11 +19,17 @@ The pipeline is split so a real model drops into one seam:
            --> extract_events()     <-- pure function, timing logic
            --> score()              <-- plant-and-recover, gates the claim
 
-The classical counter (blur + threshold + connected-components) is the baseline
-on purpose. It nails the schedule when blastomeres are separable; turn on
---crowding and it UNDERCOUNTS once they pack. That failure IS the argument for a
-learned detector + SAM2 identity tracking. Don't hide it; demo it. The eval
-harness never changes - only the model in the seam does.
+Both seams are built out concretely on synthetic data in the sibling demos:
+detection with a classical -> RF-DETR swap in demos/well_detection, and
+SAM2-shaped identity tracking in demos/roi_tracking. The classical counter here
+(blur + threshold + connected-components) is the baseline on purpose. It nails
+the schedule when blastomeres are separable; turn on --crowding and it
+UNDERCOUNTS once they pack - that failure is the argument for a learned detector
+plus SAM2 identity memory. The eval harness never changes, only the model does.
+
+Extension seam: the same plant-and-recover harness accepts tPNf (pronuclei
+fading) and tSB (start of blastulation) once frames model those appearances -
+add them to `schedule` with detectors and the scoring is unchanged.
 """
 from __future__ import annotations
 

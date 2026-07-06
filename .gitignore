@@ -1,6 +1,8 @@
 frames/
 videos/
 output/
+.venv/
+*.egg-info/
 __pycache__/
 *.pyc
 .DS_Store
