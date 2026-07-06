@@ -52,6 +52,23 @@ python3 src/plots.py --schedule ""
 
 > Raw videos and extracted frames should never be committed to the repository.
 
+## Embryo morphokinetics demo
+
+`embryo_morphokinetics_demo.py` - a clean-room, numpy-only demo that plants a
+known cell-division schedule on a synthetic time-lapse, recovers the
+morphokinetic timings blind, and scores the recovery. Same discipline as the
+ROI pipeline above: ground truth in, honest error out.
+
+```
+python3 embryo_morphokinetics_demo.py             # recovers 7/7 events, MAE 0 min
+python3 embryo_morphokinetics_demo.py --crowding  # classical counter breaks -> 1/7
+```
+
+The `--crowding` failure is the point: once blastomeres pack, a threshold +
+connected-components baseline undercounts. That is the seam where a learned
+detector (**RF-DETR / RT-DETRv4**) plus **SAM2** identity tracking earn their
+keep - the eval harness never changes, only the model in `detect_cell_count()` does.
+
 ## License
 
 [MIT](LICENSE)
