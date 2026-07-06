@@ -1,73 +1,85 @@
 # lab-cv
 
-Offline computer-vision pipeline for ROI motion analysis of lab deck / protocol video. Runs entirely CPU-only with synthetic data -- no real video or downloads required.
+Computer vision for the bench - **classical baselines with the exact seam where
+a learned detector, SAM2, or a VLM drops in.** Every demo is clean-room: it
+generates its own synthetic data, plants known ground truth, runs the method
+blind, and scores recovery. CPU-only, no GPU, no downloads, no real media.
+
+The through-line is **video-verified execution**: find the instances, verify the
+state of each, hold identity across frames, and escalate the ambiguous ones - the
+CV side of turning tacit lab know-how into reproducible, checkable automation.
+
+```
+frames ─▶ detect()      where are the instances?      demos/well_detection
+       ─▶ classify()    what state is each in?         demos/well_state
+       ─▶ track()       same identity across frames?   demos/roi_tracking
+       ─▶ label()       name / adjudicate the unsure    demos/vocab_vlm
+                        every step scored vs the plant  eval/metrics.py
+```
 
 ## Quickstart
 
 ```bash
-pip install opencv-python numpy pandas matplotlib
-make synthetic
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+make all            # unit tests + all five demos, each scored vs its plant
 ```
 
-This generates a synthetic deck-camera video, extracts frames, builds a contact sheet, measures per-ROI brightness and motion, writes a dashboard summary, and produces a QC plot with validation.
+Each demo also runs on its own (`python demos/well_state/run.py`), writes a QC
+plot to `output/`, and prints a one-line pass/fail against ground truth.
 
-## Pipeline
+## Demos - with the numbers they actually print
 
-1. **Generate synthetic video** -- `src/generate_synthetic_video.py` writes a short MP4 with a static background and four ROI regions that brighten on a known schedule (simulating tip pickup, plate motion, etc.).
+All figures below are printed by the scripts in this repo on synthetic data with
+the classical baseline (no models installed). Re-run `make all` to reproduce.
 
-2. **Extract frames** -- `src/extract_frames.py` samples frames at `--every-sec` intervals.
+| Demo | What it shows | Baseline result | Learned-model seam |
+| --- | --- | --- | --- |
+| **[well_detection](demos/well_detection)** | instance detection + COCO scoring | clean plate **AP@0.5 = 1.00**, AP@[.5:.95] = 0.70, precision 0.94, recall 1.00; with `--occluder` a "hand" hides wells -> **recall 0.96**, AP@0.5 0.95 | RF-DETR / RT-DETRv4 behind `detect(model="rfdetr")` |
+| **[well_state](demos/well_state)** | per-instance state + confidence (spatial verification) | **48 instances, ~2-3 ms/frame, accuracy 1.00**, clean confusion matrix; `--partial 4` under-fills wells -> **4 low-confidence QC flags** | learned classifier / VLM, same `classify()` call |
+| **[roi_tracking](demos/roi_tracking)** | identity across a deck video | localization **IoU 0.93**; crossing paths -> **2 ID switches** (greedy IoU has no memory), parallel -> **0** | SAM2 video memory behind `tracker.SAM2Tracker` |
+| **[morphokinetics](demos/morphokinetics)** | timing recovery under crowding | separable -> **7/7 events, MAE 0 min**; `--crowding` packs blastomeres -> baseline **1/7, MAE 60 min** | RF-DETR + SAM2 (built out in the two demos above) |
+| **[vocab_vlm](demos/vocab_vlm)** | detector -> VLM layering | open-vocab labeling **accuracy 1.00**; VLM escalated on only the low-confidence boxes -> **~52% of calls saved** | Qwen3-VL (vocabulary) / Gemini 3 (reasoning), offline mock backend by default |
 
-3. **Contact sheet** -- `src/make_contact_sheet.py` tiles sampled frames into a single review image for quick visual QC.
+## How it's built
 
-4. **ROI motion analysis** -- `src/analyze_roi_motion.py` reads an ROI config (`example_roi_config.json`) and computes per-frame brightness and frame-to-frame absolute difference for each region, writing results to CSV.
+- **Plant-and-recover.** Nothing is asserted that isn't scored. Each demo draws
+  the ground truth, hides it from the method, and reports error against it.
+- **One interface per stage.** `detect()`, `classify()`, `tracker`, and the VLM
+  `label_regions()` each expose a single call site, so the classical baseline and
+  the learned model are swappable by a flag - the eval harness never changes.
+- **Honest failure is the demo.** The occluder, the crossing, and `--crowding`
+  are there to *break* the baseline. That break is precisely where a learned
+  detector / SAM2 / VLM earns its keep - shown, not hidden.
+- **Shared, unit-tested scoring.** IoU, precision/recall, AP@0.5, AP@[.5:.95],
+  confusion matrix, and ID-switch counting live in one auditable file,
+  [`eval/metrics.py`](eval/metrics.py), with hand-checked tests in
+  [`eval/test_metrics.py`](eval/test_metrics.py) (`make test`).
 
-5. **Dashboard summary** -- `src/dashboard_summary.py` copies the latest frame and writes a JSON summary of detected activity per ROI.
+The low-confidence flag in `well_state` is the point where CV meets lab
+reproducibility: a step can *look* executed and still be wrong ("the motions look
+right, the chemistry's off"). Spatial verification catches the visible half and
+flags the ambiguous half for orthogonal QC, rather than passing it silently.
 
-6. **QC plots** -- `src/plots.py` generates per-ROI brightness and motion traces, then validates detected motion peaks against the planted activity schedule.
+## Real-model paths (optional)
 
-## How it works
+Every result above is the classical baseline. The learned paths are guarded and
+optional - install [`requirements-models.txt`](requirements-models.txt) only for
+the seam you want (RF-DETR, SAM2, a VLM). Nothing here ships weights, and the
+baselines never need them.
 
-The core detection is frame-to-frame absolute difference within each ROI:
+## Legacy ROI-motion pipeline
 
-```python
-# For each ROI crop (greyscale), compare to the previous frame
-diff = np.abs(current_crop - previous_crop)
-absdiff_mean = diff.mean()
-absdiff_p95  = np.percentile(diff, 95)
-# First frame has absdiff = 0 (no previous frame)
-```
+The original frame-to-frame absdiff pipeline is still here (`src/`, `make
+synthetic`): synthetic deck video -> per-ROI brightness/motion -> QC plot validated
+against a planted activity schedule. See [the pipeline steps](src).
 
-A region is considered "active" when `absdiff_mean` exceeds a threshold (default 5.0). The synthetic pipeline validates this by comparing detected activity against the known schedule and printing a one-line result.
+## Note
 
-## Run on your own video
-
-```bash
-python3 src/extract_frames.py protocol_video.mp4 --every-sec 2.0 --outdir frames
-python3 src/make_contact_sheet.py --framedir frames --out output/contact_sheet.png
-# Edit example_roi_config.json with x/y/w/h matching your camera view
-python3 src/analyze_roi_motion.py --framedir frames --roi-config example_roi_config.json
-python3 src/dashboard_summary.py
-python3 src/plots.py --schedule ""
-```
-
-> Raw videos and extracted frames should never be committed to the repository.
-
-## Embryo morphokinetics demo
-
-`embryo_morphokinetics_demo.py` - a clean-room, numpy-only demo that plants a
-known cell-division schedule on a synthetic time-lapse, recovers the
-morphokinetic timings blind, and scores the recovery. Same discipline as the
-ROI pipeline above: ground truth in, honest error out.
-
-```
-python3 embryo_morphokinetics_demo.py             # recovers 7/7 events, MAE 0 min
-python3 embryo_morphokinetics_demo.py --crowding  # classical counter breaks -> 1/7
-```
-
-The `--crowding` failure is the point: once blastomeres pack, a threshold +
-connected-components baseline undercounts. That is the seam where a learned
-detector (**RF-DETR / RT-DETRv4**) plus **SAM2** identity tracking earn their
-keep - the eval harness never changes, only the model in `detect_cell_count()` does.
+Synthetic data throughout; results are for the classical baselines on that data,
+generated on the fly from a fixed seed. No real or proprietary media is included
+or required. The learned-model paths are documented seams behind the same
+interfaces.
 
 ## License
 

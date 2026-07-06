@@ -1,7 +1,29 @@
 PYTHON ?= python3
 
-.PHONY: synthetic clean
+.PHONY: all test detection state tracking morphokinetics vocab synthetic clean
 
+# --- CV portfolio: unit tests + every demo, each scored vs its plant ----------
+all: test detection state tracking morphokinetics vocab
+
+test:
+	$(PYTHON) -m eval.test_metrics
+
+detection:
+	$(PYTHON) demos/well_detection/run.py
+
+state:
+	$(PYTHON) demos/well_state/run.py
+
+tracking:
+	$(PYTHON) demos/roi_tracking/run.py
+
+morphokinetics:
+	$(PYTHON) demos/morphokinetics/run.py
+
+vocab:
+	$(PYTHON) demos/vocab_vlm/run.py
+
+# --- legacy ROI-motion pipeline (absdiff over a synthetic deck video) ---------
 synthetic:
 	$(PYTHON) src/generate_synthetic_video.py
 	$(PYTHON) src/extract_frames.py videos/synthetic_deck.mp4 --every-sec 0.5
@@ -11,4 +33,4 @@ synthetic:
 	$(PYTHON) src/plots.py
 
 clean:
-	rm -rf frames/ videos/ output/
+	rm -rf frames/ videos/ output/ **/__pycache__/ __pycache__/
