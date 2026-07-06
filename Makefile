@@ -1,9 +1,9 @@
 PYTHON ?= python3
 
-.PHONY: all test detection state tracking morphokinetics vocab synthetic clean
+.PHONY: all test detection state tracking tacit morphokinetics vocab synthetic clean
 
 # --- CV portfolio: unit tests + every demo, each scored vs its plant ----------
-all: test detection state tracking morphokinetics vocab
+all: test detection state tracking tacit morphokinetics vocab
 
 test:
 	$(PYTHON) -m eval.test_metrics
@@ -16,6 +16,9 @@ state:
 
 tracking:
 	$(PYTHON) demos/roi_tracking/run.py
+
+tacit:
+	$(PYTHON) demos/tacit_gap/run.py
 
 morphokinetics:
 	$(PYTHON) demos/morphokinetics/run.py
