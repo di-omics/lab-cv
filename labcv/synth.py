@@ -21,11 +21,24 @@ FILLED = 0.78    # liquid in a well
 EMPTY = 0.20     # dry well interior
 
 
-def microplate(rows=6, cols=8, px=384, rng=None, states=None, well_frac=0.40,
-               noise=0.015, occluder=False, distractors=0, partial_idx=None):
-    """A top-down microplate frame.
+def _rounded_rect(img, p0, p1, radius, color):
+    """Filled rounded rectangle (cv2 only) - the plate body / skirt."""
+    x0, y0, x1, y1 = int(p0[0]), int(p0[1]), int(p1[0]), int(p1[1])
+    r = max(1, int(radius))
+    cv2.rectangle(img, (x0 + r, y0), (x1 - r, y1), color, -1)
+    cv2.rectangle(img, (x0, y0 + r), (x1, y1 - r), color, -1)
+    for cx, cy in ((x0 + r, y0 + r), (x1 - r, y0 + r), (x0 + r, y1 - r), (x1 - r, y1 - r)):
+        cv2.circle(img, (cx, cy), r, color, -1, cv2.LINE_AA)
 
-    states       per-well 0/1 fill (row-major). None -> all wells rendered
+
+def microplate(rows=8, cols=12, px=600, rng=None, states=None, well_frac=0.40,
+               noise=0.015, occluder=False, distractors=0, partial_idx=None):
+    """A top-down microplate frame - a landscape SBS plate (default 8x12 = 96 wells)
+    with a rounded body, an A1 chamfer, and a bright rim on every well.
+
+    rows, cols   plate format (8x12 = 96-well; 6x8 / 4x6 etc. for smaller views).
+    px           image WIDTH in pixels; height follows the SBS landscape aspect.
+    states       per-well 0/1 fill (row-major, A1..H12). None -> all wells rendered
                  visible with neutral interior (detection-only frame).
     occluder     draw a dark 'gloved hand / pipettor' bar over ~2 wells so a
                  classical detector misses them (recall < 1) - the learned-
@@ -33,15 +46,26 @@ def microplate(rows=6, cols=8, px=384, rng=None, states=None, well_frac=0.40,
     distractors  bright specks (bubbles/condensation) -> candidate false pos.
     partial_idx  wells drawn under-filled (ambiguous) -> low classifier
                  confidence, i.e. a QC flag ("motions look right, chemistry off").
+    Returns (img, boxes[N,4], states[N]) in row-major (A1, A2, ... H12) order.
     """
     rng = np.random.default_rng(0) if rng is None else rng
-    img = np.full((px, px), DECK, np.float32)
-    m = int(px * 0.07)
-    cv2.rectangle(img, (m, m), (px - m, px - m), PLATE, -1)
+    edge = 1.85                                    # outer margin + label gutter (pitch units)
+    pitch = px / ((cols - 1) + 2 * edge)           # square well pitch
+    r = pitch * well_frac
+    x0 = y0 = edge * pitch                          # A1 well center
+    W = int(round(2 * edge * pitch + pitch * (cols - 1)))
+    H = int(round(2 * edge * pitch + pitch * (rows - 1)))
 
-    xs = np.linspace(m + m, px - m - m, cols)
-    ys = np.linspace(m + m, px - m - m, rows)
-    r = float(min(xs[1] - xs[0], ys[1] - ys[0]) * well_frac)
+    img = np.full((H, W), DECK, np.float32)
+    _rounded_rect(img, (pitch * 0.5, pitch * 0.5),               # skirt (darker border)
+                  (W - pitch * 0.5, H - pitch * 0.5), pitch * 0.5, PLATE * 0.8)
+    _rounded_rect(img, (pitch * 0.85, pitch * 0.85),             # plate surface
+                  (W - pitch * 0.85, H - pitch * 0.85), pitch * 0.4, PLATE)
+    ch, tl = int(pitch * 0.7), int(pitch * 0.85)                 # A1 chamfer (orientation)
+    cv2.fillConvexPoly(img, np.array([[tl, tl], [tl + ch, tl], [tl, tl + ch]]), DECK)
+
+    xs = x0 + pitch * np.arange(cols)
+    ys = y0 + pitch * np.arange(rows)
 
     partial_idx = set(partial_idx or [])
     boxes, st = [], []
@@ -62,7 +86,7 @@ def microplate(rows=6, cols=8, px=384, rng=None, states=None, well_frac=0.40,
     placed, attempts = 0, 0                             # bright specks away from wells -> isolated FP bait
     while placed < distractors and attempts < 400:
         attempts += 1
-        sx, sy = rng.uniform(r, px - r), rng.uniform(r, px - r)
+        sx, sy = rng.uniform(r, W - r), rng.uniform(r, H - r)
         if all((sx - cx) ** 2 + (sy - cy) ** 2 > (r * 1.7) ** 2 for cx, cy in centers):
             cv2.circle(img, (int(sx), int(sy)), int(r * 0.5), RIM, -1, cv2.LINE_AA)
             placed += 1

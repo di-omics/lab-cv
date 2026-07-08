@@ -43,8 +43,8 @@ from plr_bridge import Action, HoldForReviewError, decide_volume      # noqa: E4
 
 @dataclass
 class Config:
-    rows: int = 6
-    cols: int = 8
+    rows: int = 8
+    cols: int = 12
     seed: int = 5
     target_vol: float = 10.0     # uL target dispense
     max_uL: float = 20.0         # camera-readable well fill span
@@ -68,11 +68,11 @@ def run(cfg: Config) -> bool:
 
     # ---- plant two independent failure modes = ground truth -------------------
     vol = np.full(n, cfg.target_vol) + rng.normal(0, 0.05, n)
-    under_idx, over_idx = [2, 6, 10], [30, 34, 38]
+    under_idx, over_idx = [2, 6, 10], [50, 54, 58]
     vol[under_idx] = [7.0, 7.5, 6.8]
     vol[over_idx] = [13.2, 12.8, 13.5]
     conc = np.full(n, cfg.target_conc) + rng.normal(0, 0.02, n)
-    off_idx = [8, 20, 5, 13]                     # 8,20 fall in the sample; 5,13 do not
+    off_idx = [8, 40, 5, 45]                     # 8,40 fall in the sample; 5,45 do not
     conc[off_idx] = [0.65, 1.35, 0.70, 1.32]
     true_vol_err = np.abs(vol - cfg.target_vol) > cfg.tol_vol
     true_off = np.abs(conc - cfg.target_conc) > cfg.tol_conc
