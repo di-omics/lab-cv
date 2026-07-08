@@ -84,8 +84,9 @@ def run(cfg: Config) -> bool:
     col_of = {"filled well": viz.S.OUTLINE["blue"],
               "empty well": viz.S.OUTLINE["peach"],
               "bubble": viz.S.OUTLINE["pink"]}
-    fig, ax = viz.plt.subplots(1, 1, figsize=(5.6, 4.6))
+    fig, ax = viz.plt.subplots(1, 1, figsize=(5.8, 4.6))
     viz.show(ax, img, title=f"open-vocab labels (mock VLM) - acc {acc:.2f}")
+    viz.plate_labels(ax, gt_boxes, cfg.rows, cfg.cols)
     for box, (lab, _), t in zip(boxes, labels, lab_txt):
         viz.boxes(ax, [box], col_of[lab], lw=1.6, labels=[t])
     viz.save(fig, os.path.join(ROOT, cfg.out))
