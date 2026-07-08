@@ -3,7 +3,8 @@
 Computer vision for the bench - **classical baselines with the exact seam where
 a learned detector, SAM2, or a VLM drops in.** Every demo is clean-room: it
 generates its own synthetic data, plants known ground truth, runs the method
-blind, and scores recovery. CPU-only, no GPU, no downloads, no real media.
+blind, and scores recovery. No downloads, no real media; the baselines run on a
+CPU and the optional learned-model paths use a GPU.
 
 The through-line is **video-verified execution**: find the instances, verify the
 state of each, hold identity across frames, escalate the ambiguous ones, and
@@ -95,10 +96,10 @@ operational and quantitative.
 
 ## Real-model paths (optional)
 
-Every result above is the classical baseline. The learned paths are guarded and
-optional - install [`requirements-models.txt`](requirements-models.txt) only for
-the seam you want (RF-DETR, SAM2, a VLM). Nothing here ships weights, and the
-baselines never need them.
+Every result above is the classical baseline, which runs on a CPU. The learned
+paths are guarded and optional - install [`requirements-models.txt`](requirements-models.txt)
+only for the seam you want (RF-DETR, SAM2, a VLM); those run on a GPU. Nothing
+here ships weights, and the baselines never need them.
 
 ## Legacy ROI-motion pipeline
 
