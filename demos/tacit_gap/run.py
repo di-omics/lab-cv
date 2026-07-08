@@ -41,9 +41,9 @@ LABELS = ["in_spec", "off_spec"]
 
 @dataclass
 class Config:
-    rows: int = 6
-    cols: int = 8
-    px: int = 384
+    rows: int = 8
+    cols: int = 12
+    px: int = 600
     seed: int = 4
     offspec: int = 6
     target: float = 1.0          # target concentration (normalized)
@@ -100,6 +100,7 @@ def run(cfg: Config) -> bool:
     # ---- side-by-side QC: 'video says GO' vs 'chemistry says NO' --------------
     fig, ax = viz.plt.subplots(1, 2, figsize=(10.4, 5.2))
     viz.show(ax[0], img, title="spatial verification - every well: GO")
+    viz.plate_labels(ax[0], gt_boxes, cfg.rows, cfg.cols)
     for box, cf in zip(pred_boxes, confs):
         viz.boxes(ax[0], [box], viz.S.OUTLINE["green"], lw=1.4)
 

@@ -28,9 +28,9 @@ from detect import detect              # noqa: E402
 
 @dataclass
 class Config:
-    rows: int = 6
-    cols: int = 8
-    px: int = 384
+    rows: int = 8
+    cols: int = 12
+    px: int = 600
     seed: int = 0
     occluder: bool = False
     distractors: int = 4
@@ -61,9 +61,10 @@ def run(cfg: Config) -> bool:
     det_str = f"{op['tp'] + op['fp']} / {len(gt)}"
     print(f"  {'detections / wells':<22}{det_str:>8}")
 
-    labels = [f"{s:.2f}" for s in scores]
-    fig, ax = viz.plt.subplots(1, 1, figsize=(5.2, 5.2))
+    labels = [f"{s:.2f}" if s < 0.99 else "" for s in scores]   # annotate only the doubtful
+    fig, ax = viz.plt.subplots(1, 1, figsize=(6.6, 4.8))
     viz.show(ax, img, title=f"well detection - AP50={ap50:.2f}  AP[.5:.95]={mAP:.2f}")
+    viz.plate_labels(ax, gt, cfg.rows, cfg.cols)
     viz.boxes(ax, gt, viz.S.OUTLINE["green"], lw=1.8)               # ground truth
     viz.boxes(ax, pred, viz.S.OUTLINE["blue"], lw=1.2, labels=labels)  # detected
     ax.plot([], [], color=viz.S.OUTLINE["green"], label="planted well")
