@@ -1,5 +1,6 @@
 # Base requirements - every baseline and demo runs on just these.
-# CPU-only, no GPU, no downloads, no model weights.
+# No downloads, no model weights; the baselines run on a CPU. The optional
+# learned-model paths (requirements-models.txt) use a GPU.
 numpy>=1.24
 opencv-python-headless>=4.8
 matplotlib>=3.7
