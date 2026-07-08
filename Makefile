@@ -1,9 +1,9 @@
 PYTHON ?= python3
 
-.PHONY: all test detection state tracking tacit morphokinetics vocab synthetic clean
+.PHONY: all test detection state tracking tacit pipette pipetteqc morphokinetics vocab synthetic clean
 
 # --- CV portfolio: unit tests + every demo, each scored vs its plant ----------
-all: test detection state tracking tacit morphokinetics vocab
+all: test detection state tracking tacit pipette pipetteqc morphokinetics vocab
 
 test:
 	$(PYTHON) -m eval.test_metrics
@@ -19,6 +19,12 @@ tracking:
 
 tacit:
 	$(PYTHON) demos/tacit_gap/run.py
+
+pipette:
+	$(PYTHON) demos/pipette_cam/run.py
+
+pipetteqc:
+	$(PYTHON) demos/pipette_cam/run_qc.py
 
 morphokinetics:
 	$(PYTHON) demos/morphokinetics/run.py
