@@ -38,9 +38,9 @@ LABELS = ["empty", "filled"]
 
 @dataclass
 class Config:
-    rows: int = 6
-    cols: int = 8
-    px: int = 384
+    rows: int = 8
+    cols: int = 12
+    px: int = 600
     seed: int = 1
     filled_frac: float = 0.5
     partial: int = 0
@@ -97,15 +97,18 @@ def run(cfg: Config) -> bool:
     print(f"\n  flagged (conf < {cfg.flag_conf:.2f}): {flagged}"
           f"  -> QC checkpoint, hold for orthogonal verification")
 
-    # QC panel: each well boxed + labelled state@confidence, low-conf in red
-    labels = [f"{LABELS[s]} {c:.2f}" for s, c in zip(pred_states, confs)]
+    # QC panel: wells colored by state (filled/empty); low-confidence wells flagged
+    # pink and annotated with their confidence - the QC checkpoints on the plate.
     cols = [viz.S.OUTLINE["blue"] if s else viz.S.OUTLINE["peach"] for s in pred_states]
-    fig, ax = viz.plt.subplots(1, 1, figsize=(5.4, 5.6))
+    fig, ax = viz.plt.subplots(1, 1, figsize=(7.4, 5.0))
     viz.show(ax, img, title=f"well-state - acc {rep['accuracy']:.2f}, "
                             f"{len(pred_boxes)} instances, {latency_ms:.0f} ms")
-    for box, lab, c, cf in zip(pred_boxes, labels, cols, confs):
-        col = viz.S.OUTLINE["pink"] if cf < cfg.flag_conf else c
-        viz.boxes(ax, [box], col, lw=1.6, labels=[lab])
+    viz.plate_labels(ax, gt_boxes, cfg.rows, cfg.cols)
+    for box, c, cf in zip(pred_boxes, cols, confs):
+        if cf < cfg.flag_conf:
+            viz.boxes(ax, [box], viz.S.OUTLINE["pink"], lw=2.0, labels=[f"{cf:.2f}"])
+        else:
+            viz.boxes(ax, [box], c, lw=1.5)
     viz.save(fig, os.path.join(ROOT, cfg.out))
 
     ok = rep["accuracy"] >= 0.95
