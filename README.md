@@ -27,8 +27,11 @@ pip install -r requirements.txt
 make all            # unit tests + every demo, each scored vs its plant
 ```
 
-Each demo also runs on its own (`python demos/well_state/run.py`), writes a QC
-plot to `output/`, and prints a one-line pass/fail against ground truth.
+Each demo also runs on its own (`python demos/well_state/run.py`) and prints a one-line
+pass/fail against ground truth. Six of the seven also write a QC plot to `output/`;
+`morphokinetics` prints only. It is the one demo that does not compose the shared parts --
+it reimplements blurring and connected components inline and calls neither `labcv.synth`
+nor `eval.metrics` -- so it is the odd one out in the plot too. Worth folding back in.
 
 ## Demos - with the numbers they actually print
 
