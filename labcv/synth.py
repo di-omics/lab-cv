@@ -92,7 +92,8 @@ def microplate(rows=8, cols=12, px=600, rng=None, states=None, well_frac=0.40,
             placed += 1
 
     if occluder:                                        # dark bar over ~2 wells
-        cx = int(xs[cols // 2]); cy = int(ys[0])
+        cx = int(xs[cols // 2])
+        cy = int(ys[0])
         cv2.rectangle(img, (cx - int(r), cy - int(r * 1.4)),
                       (cx + int(r * 3.2), cy + int(r * 1.4)), DECK * 0.6, -1)
 

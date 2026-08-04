@@ -44,6 +44,28 @@ class Config:
     out: str = "output/vocab_vlm_qc.png"
 
 
+def _cheap_label(image, box):
+    """Name a box without spending a VLM call.
+
+    This is the $0 path, and its vocabulary is deliberately narrower than
+    ``VOCAB``: brightness alone separates a filled well from an empty one, and
+    nothing about a single crop's brightness says "bubble". A speck that the
+    detector scored confidently therefore comes back named as a well, which is
+    the cost of not making the call. Reporting that cost is the point; a gate
+    whose savings are printed without them is a gate that looks free.
+    """
+    img = np.asarray(image, dtype=float)
+    h, w = img.shape[:2]
+    x1, y1, x2, y2 = [int(round(v)) for v in box]
+    crop = img[max(0, y1):min(h, y2), max(0, x1):min(w, x2)]
+    if crop.size == 0:
+        return "empty well", 0.0
+    inten = float(crop.mean())
+    label = "filled well" if inten >= 0.45 else "empty well"
+    conf = float(min(1.0, abs(inten - 0.45) / 0.45))
+    return label, conf
+
+
 def _truth_for(box, gt_boxes, gt_states):
     cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
     for i, (x1, y1, x2, y2) in enumerate(gt_boxes):
@@ -61,13 +83,37 @@ def run(cfg: Config) -> bool:
 
     boxes, scores = detect(img, model="classical")
     escalate = scores < cfg.escalate_below
-    labels = label_regions(img, boxes, VOCAB, backend="mock")
+
+    # The gate is enforced here, not described here. Only the escalated boxes
+    # cross the adapter boundary; the rest are named by the cheap path. Before
+    # this, `escalate` was computed and every box was sent anyway, so the
+    # "calls saved" line counted a branch nothing took.
+    esc_idx = [i for i, e in enumerate(escalate) if e]
+    escalated_boxes = [boxes[i] for i in esc_idx]
+    vlm_labels = (label_regions(img, escalated_boxes, VOCAB, backend="mock")
+                  if escalated_boxes else [])
+
+    labels = [None] * len(boxes)
+    for slot, i in enumerate(esc_idx):
+        labels[i] = vlm_labels[slot]
+    for i in range(len(boxes)):
+        if labels[i] is None:
+            labels[i] = _cheap_label(img, boxes[i])
 
     correct, total = 0, 0
-    for box, (lab, _), esc in zip(boxes, labels, escalate):
+    cheap_wrong, cheap_total = 0, 0
+    cheap_wrong_on_specks = 0
+    for i, (box, (lab, _)) in enumerate(zip(boxes, labels)):
         truth = _truth_for(box, gt_boxes, gt_states)
         total += 1
-        correct += int(lab == truth)
+        hit = int(lab == truth)
+        correct += hit
+        if not escalate[i]:
+            cheap_total += 1
+            if not hit:
+                cheap_wrong += 1
+                if truth == "bubble":
+                    cheap_wrong_on_specks += 1
 
     acc = correct / max(total, 1)
     n_esc = int(escalate.sum())
@@ -77,10 +123,17 @@ def run(cfg: Config) -> bool:
     print(f"  detections={total}   escalated to VLM (conf<{cfg.escalate_below})={n_esc}"
           f"   ({100*n_esc/max(total,1):.0f}% of frames' boxes)\n")
     print(f"  open-vocab labeling accuracy vs plant   {acc:.3f}")
+    print(f"  VLM calls actually made                 {n_esc}/{total}")
     print(f"  VLM calls saved by layering             {total - n_esc}/{total}"
           f"  ({100*(total-n_esc)/max(total,1):.0f}%)")
+    print(f"  cost of the saved calls                 {cheap_wrong}/{cheap_total}"
+          f"  cheap-path labels wrong")
+    if cheap_wrong_on_specks:
+        print(f"  {cheap_wrong_on_specks} of the boxes the gate kept from the VLM are specks, and the")
+        print("  cheap path has no word for a bubble, so it called them wells. Raising")
+        print("  the threshold would hide this by fitting it to the data it judges.")
 
-    lab_txt = [f"{l} {c:.2f}" for (l, c) in labels]
+    lab_txt = [f"{name} {c:.2f}" for (name, c) in labels]
     col_of = {"filled well": viz.S.OUTLINE["blue"],
               "empty well": viz.S.OUTLINE["peach"],
               "bubble": viz.S.OUTLINE["pink"]}

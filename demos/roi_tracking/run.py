@@ -82,8 +82,11 @@ def run(cfg: Config) -> bool:
               for i, b in pred[f] if i == oid]
         ax[1].plot(xs, ys, "-o", ms=2.5, color=list(viz.S.OUTLINE.values())[oid % 7],
                    label=f"id{oid}")
-    ax[1].invert_yaxis(); ax[1].set_aspect("equal"); ax[1].legend()
-    ax[1].set_xlabel("x (px)"); ax[1].set_ylabel("y (px)")
+    ax[1].invert_yaxis()
+    ax[1].set_aspect("equal")
+    ax[1].legend()
+    ax[1].set_xlabel("x (px)")
+    ax[1].set_ylabel("y (px)")
     viz.save(fig, os.path.join(ROOT, cfg.out))
 
     ok = mean_iou >= 0.70

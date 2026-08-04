@@ -20,7 +20,6 @@ def make_sheet(framedir, out, cols, thumb_width):
         scale = thumb_width / w
         thumbs.append(cv2.resize(img, (thumb_width, int(h * scale))))
 
-    th = thumbs[0].shape[0]
     rows = (len(thumbs) + cols - 1) // cols
     # pad to fill last row
     while len(thumbs) % cols:

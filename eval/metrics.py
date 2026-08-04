@@ -129,7 +129,7 @@ def ap_range(gt, pred, scores, thrs=None):
 # ---------------------------------------------------------------------------
 def confusion_matrix(y_true, y_pred, labels) -> np.ndarray:
     """rows = true label, cols = predicted label, in `labels` order."""
-    idx = {l: i for i, l in enumerate(labels)}
+    idx = {name: i for i, name in enumerate(labels)}
     M = np.zeros((len(labels), len(labels)), int)
     for t, p in zip(y_true, y_pred):
         M[idx[t], idx[p]] += 1
@@ -141,11 +141,11 @@ def classification_report(y_true, y_pred, labels) -> dict:
     M = confusion_matrix(y_true, y_pred, labels)
     acc = float(np.trace(M) / max(M.sum(), 1))
     per = {}
-    for i, l in enumerate(labels):
+    for i, name in enumerate(labels):
         tp = M[i, i]
         fp = M[:, i].sum() - tp
         fn = M[i, :].sum() - tp
-        per[l] = {
+        per[name] = {
             "precision": float(tp / max(tp + fp, 1)),
             "recall": float(tp / max(tp + fn, 1)),
             "support": int(M[i, :].sum()),

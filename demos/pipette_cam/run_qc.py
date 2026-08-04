@@ -36,9 +36,10 @@ sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.dirname(__file__))
 
 from labcv import synth, viz                                          # noqa: E402
+from labcv.dynamics import DispenseTransition                         # noqa: E402
 import height                                                         # noqa: E402
 import dye_qc                                                         # noqa: E402
-from plr_bridge import Action, HoldForReviewError, decide_volume      # noqa: E402
+from plr_bridge import Action, HoldForReviewError, decide_volume      # noqa: E402,F401
 
 
 @dataclass
@@ -64,7 +65,6 @@ def _plate_labels(rows, cols):
 def run(cfg: Config) -> bool:
     rng = np.random.default_rng(cfg.seed)
     n = cfg.rows * cfg.cols
-    wells = _plate_labels(cfg.rows, cfg.cols)
 
     # ---- plant two independent failure modes = ground truth -------------------
     vol = np.full(n, cfg.target_vol) + rng.normal(0, 0.05, n)
@@ -78,6 +78,16 @@ def run(cfg: Config) -> bool:
     true_off = np.abs(conc - cfg.target_conc) > cfg.tol_conc
 
     # ---- checkpoint 1: tip-cam height -> volume, 100% of wells ----------------
+    # T(s, a) for the corrective move lives in labcv.dynamics. What used to sit
+    # here was `vol_final[i] = cfg.target_vol` - a transition model asserting
+    # that a top-up or a re-aspirate lands exactly on target with zero error.
+    # That is the strongest possible claim about a pipetting channel, made in one
+    # line, and it made the closed loop look perfect for a reason that had
+    # nothing to do with the camera: a well was in spec because the code
+    # assigned it the target. The real move is commanded against what the CAMERA
+    # read (so it inherits the readout error), delivers a gain fraction of what
+    # it was told, and is noisy - it lands near target, not on it.
+    transition = DispenseTransition(cfg.target_vol, rng=np.random.default_rng(cfg.seed + 17))
     vol_est = np.zeros(n)
     vol_final = vol.copy()
     vol_flag = np.zeros(n, bool)
@@ -88,12 +98,14 @@ def run(cfg: Config) -> bool:
         act = decide_volume(v, cfg.target_vol, cfg.tol_vol)
         if act is not Action.PROCEED:
             vol_flag[i] = True
-            vol_final[i] = cfg.target_vol        # top-up / re-aspirate corrects it
+            vol_final[i] = transition.step(vol[i], act, measured=v)
     vol_caught = int((vol_flag & true_vol_err).sum())
     n_vol = int(true_vol_err.sum())
     vol_fp = int((vol_flag & ~true_vol_err).sum())
     vol_mae = float(np.mean(np.abs(vol_est - vol)))
     vol_cleared = int((np.abs(vol_final - cfg.target_vol) <= cfg.tol_vol).sum())
+    corrected = np.abs(vol_final[vol_flag] - cfg.target_vol)
+    vol_post_mae = float(np.mean(corrected)) if corrected.size else 0.0
 
     # ---- checkpoint 2: sampled plate-reader dye QC (the chemistry) ------------
     sampled = dye_qc.sample_indices(n, cfg.sample_stride)
@@ -119,12 +131,13 @@ def run(cfg: Config) -> bool:
     print(f"  planted: {n_vol} volume errors, {n_off} off-spec (wrong concentration), "
           f"independent\n")
 
-    print(f"  checkpoint 1 - tip-cam liquid height (100% of wells):")
+    print("  checkpoint 1 - tip-cam liquid height (100% of wells):")
     print(f"    volume errors caught       {vol_caught}/{n_vol}   false alarms {vol_fp}")
     print(f"    volume MAE                 {vol_mae:.2f} uL")
-    print(f"    closed loop -> re-dispensed to spec: {vol_cleared}/{n} wells within tol\n")
+    print(f"    closed loop -> re-dispensed to spec: {vol_cleared}/{n} wells within tol")
+    print(f"    corrected wells land        {vol_post_mae:.2f} uL from target, not on it\n")
 
-    print(f"  checkpoint 2 - plate-reader dye QC (sampled, orthogonal):")
+    print("  checkpoint 2 - plate-reader dye QC (sampled, orthogonal):")
     print(f"    off-spec caught @1/{cfg.sample_stride} sampling   {dye_caught}/{n_off}"
           f"   (sample hit rate {hit_frac*100:.0f}%)")
     if escalate:

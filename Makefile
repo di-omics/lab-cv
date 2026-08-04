@@ -7,6 +7,12 @@ all: test detection state tracking tacit pipette pipetteqc morphokinetics vocab
 
 test:
 	$(PYTHON) -m eval.test_metrics
+	$(PYTHON) -m eval.test_rollout_metrics
+	$(PYTHON) -m labcv.test_bridge
+	$(PYTHON) -m labcv.test_dynamics
+	$(PYTHON) -m labcv.test_episodes
+	$(PYTHON) -m demos.pipette_cam.test_transition_seam
+	$(PYTHON) -m demos.vocab_vlm.test_escalation_gate
 
 detection:
 	$(PYTHON) demos/well_detection/run.py

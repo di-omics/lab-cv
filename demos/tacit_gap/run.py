@@ -31,7 +31,6 @@ sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "demos", "well_detection"))
 sys.path.insert(0, os.path.join(ROOT, "demos", "well_state"))
 
-from eval import metrics as M          # noqa: E402
 from labcv import synth, viz           # noqa: E402
 from detect import detect              # noqa: E402
 from classify import classify_states   # noqa: E402
@@ -107,7 +106,9 @@ def run(cfg: Config) -> bool:
     grid = reader.reshape(cfg.rows, cfg.cols)
     im = ax[1].imshow(grid, cmap=viz.S.cmap("blue"), vmin=cfg.target - 0.6, vmax=cfg.target + 0.6)
     ax[1].set_title("ground-truth readout - off-spec flagged")
-    ax[1].set_xticks([]); ax[1].set_yticks([]); ax[1].grid(False)
+    ax[1].set_xticks([])
+    ax[1].set_yticks([])
+    ax[1].grid(False)
     for i in np.where(true_offspec == 1)[0]:
         r, c = divmod(i, cfg.cols)
         ax[1].add_patch(viz.plt.Rectangle((c - 0.5, r - 0.5), 1, 1, fill=False,
