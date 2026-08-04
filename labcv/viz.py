@@ -20,7 +20,8 @@ S.apply()
 
 def show(ax, img, title=None):
     ax.imshow(img, cmap="gray", vmin=0, vmax=1)
-    ax.set_xticks([]); ax.set_yticks([])
+    ax.set_xticks([])
+    ax.set_yticks([])
     ax.grid(False)
     if title:
         ax.set_title(title)

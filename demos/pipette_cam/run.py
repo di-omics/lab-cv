@@ -15,7 +15,10 @@ verify dry/residual with a confidence, and - this is the new axis versus the oth
 demos - close the loop: each verdict becomes a PLR `Action` (re-aspirate / extend
 dry / halt), the well is re-imaged, and we score both the catch AND the recovery.
 Every number below is printed by this run on synthetic frames (classical baseline,
-no models installed). See plr_bridge.py for the async PyLabRobot call sites.
+no models installed). See plr_bridge.py for the async PyLabRobot call sites, and
+labcv/dynamics.py for the transition the re-image loop steps through: what a
+re-aspirate or an extended air-dry actually does to a wet well used to be two
+bare constants applied inline here, which is a world model with no name on it.
 """
 from __future__ import annotations
 
@@ -31,6 +34,7 @@ sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.dirname(__file__))
 
 from labcv import synth, viz                              # noqa: E402
+from labcv.dynamics import AnalyticTransition             # noqa: E402
 import verify                                             # noqa: E402
 from plr_bridge import Action, EventLog, Policy, decide   # noqa: E402
 
@@ -44,8 +48,10 @@ class Config:
     cal_uL: float = 3.0          # known reference the tip cam is calibrated on
     dry_uL: float = 0.30         # <= this is 'dry enough' to elute
     max_attempts: int = 4        # camera-guided re-tries before giving up
-    rewash_leave: float = 0.12   # a re-aspirate leaves ~12% of the residual
-    drydown: float = 0.35        # an extend-dry evaporates down to ~35%
+    # The transition coefficients, now named and documented in labcv.dynamics
+    # instead of living here as two bare numbers. Same values, one definition.
+    rewash_leave: float = AnalyticTransition.REWASH_LEAVE
+    drydown: float = AnalyticTransition.DRYDOWN
     glare: bool = False
     out: str = "output/pipette_cam_qc.png"
 
@@ -53,6 +59,7 @@ class Config:
 def run(cfg: Config) -> bool:
     rng = np.random.default_rng(cfg.seed)
     pol = Policy(dry_uL=cfg.dry_uL)
+    transition = AnalyticTransition(cfg.rewash_leave, cfg.drydown)
     n = cfg.n_wells
 
     # one-point cam calibration on a known reference droplet (real rigs do this too)
@@ -87,12 +94,9 @@ def run(cfg: Config) -> bool:
             if act is Action.PROCEED:
                 proceeded[i] = True
                 break
-            if act is Action.REWASH:
-                res *= cfg.rewash_leave        # pull the dregs
-            elif act is Action.EXTEND_DRY:
-                res *= cfg.drydown             # let it evaporate
-            elif act is Action.HALT:
+            if act is Action.HALT:
                 break                          # gross residual -> stop for a human
+            res = transition.step(res, act)    # T(s, a) - the world model, named
         final_res[i] = res
 
     # ---- score: first-pass catch, then closed-loop recovery -------------------

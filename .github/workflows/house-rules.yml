@@ -1,0 +1,91 @@
+# House rules, enforced mechanically over the whole tree and the whole history.
+#
+# Why this file exists, and why it exists here specifically: the absence of this
+# check is what forced a retroactive history rewrite across 23 of 25 repositories
+# on 2026-07-28, and a rewrite is itself a costly event. It invalidates every
+# clone and every commit hash anyone else recorded, it is publicly dated, and it
+# has to be disclosed as one. This repository is public and had no .github
+# directory at all, so it was one of the repositories the rules were being
+# enforced on by hand, which is another way of saying not enforced. This job runs
+# in seconds. Cheap check, expensive omission.
+#
+# The four rules, all implemented in scripts/check_house_rules.py so they are
+# testable rather than buried in shell:
+#
+#   1. ASCII only, over "git ls-files -z", across every text extension and not
+#      just .py. Any byte above 127 fails, reported with the file and the line.
+#      Markdown and YAML are where curly punctuation actually arrives.
+#   2. No em dash, no curly quotes, no unicode arrows. Write "->" and "--".
+#   3. No attribution trailers, in tracked text OR in any commit message, over
+#      the full history via "git log --all --format=%B" and not just the
+#      working tree. A tree-only grep is the version of this check that passes
+#      while the trailer sits in a message that has already been pushed.
+#   4. "git log --all --format=%an|%cn | sort -u" must yield exactly one entry,
+#      and that entry must be di-omics for both author and committer.
+#
+# Rules 3 and 4 read history, so two traps are handled below and neither is
+# optional:
+#
+#   * fetch-depth defaults to 1. A shallow clone makes the history rules pass by
+#     seeing nothing, which is precisely the failure this file exists to catch.
+#     The checker therefore treats an empty history as a violation, so a
+#     misconfigured clone fails loudly instead of reporting a clean history.
+#   * On pull_request, actions/checkout builds a merge commit whose committer is
+#     GitHub and not di-omics. Checking out the head sha keeps rule 4 honest
+#     without allowlisting a bot identity, and an allowlist is where the first
+#     exception lives and the second one hides.
+#
+# Every push is checked, not only pushes to main. The rules are about published
+# history, and a commit on a feature branch is published the moment it is pushed.
+
+name: house rules
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  house-rules:
+    # A branch deletion arrives as a push whose sha is all zeros, and checking
+    # out a deleted ref fails. A recurring red X for a non-event is how a
+    # required check first gets called flaky and then gets ignored.
+    if: ${{ github.event_name != 'push' || !github.event.deleted }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      # checkout brings history for the ref it checked out. "--all" only means
+      # all refs when all refs are actually present, so fetch them explicitly
+      # rather than trusting a default that has changed before.
+      - name: Fetch every branch
+        run: git fetch --prune --no-tags origin "+refs/heads/*:refs/remotes/origin/*"
+
+      # No setup-python and no install line anywhere in this job, and none
+      # belongs here. The checker is stdlib only on purpose, and in this
+      # repository that is not a preference: there is no pyproject.toml and no
+      # dependency manifest for tooling, so a checker that needed one would have
+      # nowhere to declare it and would simply stop running.
+      - name: Check tree and history
+        run: python3 scripts/check_house_rules.py --root .
+
+      # The checker has to be able to fail, not merely to run. A pattern that no
+      # longer matches reports zero findings, which reads exactly like a clean
+      # repository, and that is the state 23 of 25 repositories were in. This
+      # seeds one violation of every rule and requires each to be caught.
+      #
+      # This step carries more weight here than it does in the sibling repository
+      # this checker was copied from. There, tests/test_house_rules.py covers the
+      # same ground in a pytest suite. This repository has no equivalent test and
+      # no test workflow, so the self-test is the only thing standing between a
+      # silently broken checker and a green badge that means nothing. It is
+      # stdlib only, so it needs no install step and cannot be skipped for one.
+      - name: Prove the checker still catches a seeded violation
+        run: python3 scripts/check_house_rules.py --self-test

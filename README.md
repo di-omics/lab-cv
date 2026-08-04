@@ -11,11 +11,11 @@ close the loop back to the robot - the CV side of turning tacit lab know-how int
 reproducible, checkable automation.
 
 ```
-frames ─▶ detect()       where are the instances?         demos/well_detection
-       ─▶ classify()     what state is each in?            demos/well_state
-       ─▶ track()        same identity across frames?      demos/roi_tracking
-       ─▶ label()        name / adjudicate the unsure      demos/vocab_vlm
-       ─▶ verify()+act() dry enough to elute? re-aspirate  demos/pipette_cam
+frames -> detect()       where are the instances?         demos/well_detection
+       -> classify()     what state is each in?            demos/well_state
+       -> track()        same identity across frames?      demos/roi_tracking
+       -> label()        name / adjudicate the unsure      demos/vocab_vlm
+       -> verify()+act() dry enough to elute? re-aspirate  demos/pipette_cam
                          every step scored vs the plant    eval/metrics.py
 ```
 
